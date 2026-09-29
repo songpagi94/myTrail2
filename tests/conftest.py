@@ -20,6 +20,8 @@ from tests.payloads import (
     TICKET_SEAT_PAYLOAD,
 )
 
+pytest_plugins = ("tests.bot_support",)
+
 
 class FakeResponse:
     def __init__(self, payload: Any) -> None:

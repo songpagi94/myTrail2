@@ -29,6 +29,12 @@ src/pykorail/_version.py
 /scratch*.py
 /local/
 
+# 봇 설정·자격증명·예약 상태는 배포 코드와 분리합니다.
+.env
+.env.*
+!.env.example
+/bot-data/
+
 # 리버스 엔지니어링용 APK 와 디컴파일 결과 — 절대 커밋하지 않습니다.
 *.apk
 androguard.log

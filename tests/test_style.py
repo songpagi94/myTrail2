@@ -39,9 +39,7 @@ BANNED = (ast.If, ast.For, ast.While, ast.AsyncFor)
 # 만들어내는 파일이라 우리가 고칠 수 없어 제외합니다.
 # 양쪽 다 rglob 입니다 — 한쪽만 glob 이면 하위 디렉터리가 생겼을 때 조용히 빠집니다.
 SOURCE_FILES = sorted(
-    path
-    for path in [*(ROOT / "src" / "pykorail").rglob("*.py"), *TESTS_DIR.rglob("*.py")]
-    if path.name != "_version.py"
+    path for path in [*(ROOT / "src").rglob("*.py"), *TESTS_DIR.rglob("*.py")] if path.name != "_version.py"
 )
 
 # 텍스트를 다루는 호출만 봅니다. read_bytes/write_bytes 는 인코딩이 없습니다.
@@ -356,7 +354,7 @@ def test_every_test_file_is_checked() -> None:
     assert set(TEST_FILES) == from_source, "33번 줄 글롭이 좁아지거나 넓어졌습니다"
 
 
-@pytest.mark.parametrize("subdir", ["src/pykorail", "tests"])
+@pytest.mark.parametrize("subdir", ["src/pykorail", "src/pykorail_bot", "tests"])
 def test_encoding_check_covers_every_file(subdir: str) -> None:
     """한쪽을 통째로 빠뜨리는 것뿐 아니라 파일 하나가 새는 것도 잡습니다."""
     # given

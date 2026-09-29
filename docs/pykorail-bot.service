@@ -1,0 +1,22 @@
+[Unit]
+Description=KTX Telegram reservation bot
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=songpagi
+WorkingDirectory=/home/songpagi/apps/myTrail2
+EnvironmentFile=/home/songpagi/apps/myTrail2/.env
+ExecStart=/home/songpagi/apps/myTrail2/.venv/bin/pykorail-bot run
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=90
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/songpagi/apps/myTrail2/bot-data
+
+[Install]
+WantedBy=multi-user.target
