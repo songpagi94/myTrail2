@@ -139,16 +139,24 @@ async def test_empty_credentials_stay_in_registration_step(trail_env, function, 
         h.cmd_status,
     ],
 )
-async def test_every_message_path_rejects_unallowed_user(trail_env, function) -> None:
+@pytest.mark.parametrize("allowed_ids", ["", "111,222"])
+async def test_every_message_path_rejects_unallowed_user(trail_env, monkeypatch, function, allowed_ids) -> None:
     # given
+    monkeypatch.setenv("BOT_ALLOWED_IDS", allowed_ids)
     event = update("secret", owner=999)
+    ctx = context()
 
     # when
-    await function(event, context())
+    result = await function(event, ctx)
 
     # then
+    assert result == ConversationHandler.END
     assert "허용" in event.message.reply_text.call_args.args[0]
+    assert "사용자 ID: 999" in event.message.reply_text.call_args.args[0]
+    assert "관리자" in event.message.reply_text.call_args.args[0]
     assert not storage.exists(999)
+    assert ctx.user_data == {}
+    cast(Mock, h.svc_auth.create_rail).assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -164,8 +172,10 @@ async def test_every_message_path_rejects_unallowed_user(trail_env, function) ->
         h.on_resolve,
     ],
 )
-async def test_every_callback_rejects_unallowed_user(trail_env, function) -> None:
+@pytest.mark.parametrize("allowed_ids", ["", "111,222"])
+async def test_every_callback_rejects_unallowed_user(trail_env, monkeypatch, function, allowed_ids) -> None:
     # given
+    monkeypatch.setenv("BOT_ALLOWED_IDS", allowed_ids)
     event = update(owner=999, data="cards:add")
 
     # when

@@ -152,8 +152,12 @@ def main(argv: list[str] | None = None) -> None:
     lease = None
     try:
         token = os.environ.get("BOT_TOKEN", "").strip()
-        if not token or not auth_guard.get_allowed_ids():
-            raise ValueError("BOT_TOKEN과 BOT_ALLOWED_IDS를 설정하세요.")
+        if not token:
+            raise ValueError("BOT_TOKEN을 설정하세요.")
+        if not auth_guard.get_allowed_ids():
+            logger.warning(
+                "허용 사용자가 없습니다. 텔레그램 개인 대화에서 /setup으로 ID를 확인한 뒤 BOT_ALLOWED_IDS에 추가하세요."
+            )
         if "BOT_ENABLE_PAYMENTS" in os.environ:
             raise ValueError(
                 "이전 BOT_ENABLE_PAYMENTS 설정을 제거하세요. "

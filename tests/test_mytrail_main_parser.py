@@ -47,7 +47,6 @@ def test_run_needs_no_user_credential(trail_env, monkeypatch) -> None:
     ("key", "value"),
     [
         ("BOT_TOKEN", ""),
-        ("BOT_ALLOWED_IDS", ""),
         ("BOT_DB_KEY", "invalid"),
         ("BOT_POLL_SECONDS", "1"),
         ("BOT_POLL_SECONDS", "nan"),
@@ -66,6 +65,38 @@ def test_invalid_admin_settings_prevent_polling(trail_env, monkeypatch, key, val
         main.main(["run"])
     assert error.value.code == 1
     build.assert_not_called()
+
+
+@pytest.mark.parametrize("allowed_ids", ["", "  ", "bad"])
+def test_empty_allowlist_starts_bot_for_id_discovery(trail_env, monkeypatch, caplog, allowed_ids) -> None:
+    # given
+    app = Mock()
+    monkeypatch.setenv("BOT_ALLOWED_IDS", allowed_ids)
+    monkeypatch.setattr(main, "build_application", Mock(return_value=app))
+    monkeypatch.setattr(main, "load_dotenv", Mock())
+
+    # when
+    main.main(["run"])
+
+    # then
+    app.run_polling.assert_called_once_with(drop_pending_updates=True, allowed_updates=["message", "callback_query"])
+    assert "/setup" in caplog.text
+    assert not auth_guard.is_allowed(111)
+
+
+def test_missing_allowlist_starts_bot_for_id_discovery(trail_env, monkeypatch) -> None:
+    # given
+    app = Mock()
+    monkeypatch.delenv("BOT_ALLOWED_IDS")
+    monkeypatch.setattr(main, "build_application", Mock(return_value=app))
+    monkeypatch.setattr(main, "load_dotenv", Mock())
+
+    # when
+    main.main(["run"])
+
+    # then
+    app.run_polling.assert_called_once_with(drop_pending_updates=True, allowed_updates=["message", "callback_query"])
+    assert not auth_guard.is_allowed(111)
 
 
 def test_old_bot_data_requires_explicit_migration(trail_env, monkeypatch) -> None:

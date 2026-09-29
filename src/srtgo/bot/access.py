@@ -45,7 +45,11 @@ def guarded(function: Callable[[BotUpdate, BotContext], Awaitable[Any]]) -> Call
         if user is None or chat is None:
             return ConversationHandler.END
         if chat.type != "private" or chat.id != user.id or not auth_guard.is_allowed(user.id):
-            message = f"허용된 사용자의 개인 대화에서만 사용하세요. 사용자 ID: {user.id}"
+            message = (
+                "허용된 사용자의 개인 대화에서만 사용하세요.\n"
+                f"사용자 ID: {user.id}\n"
+                "이 ID를 관리자에게 전달해 허용 목록 등록을 요청하세요."
+            )
             if update.callback_query is not None:
                 await update.callback_query.answer(message, show_alert=True)
             elif update.effective_message is not None:
