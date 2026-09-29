@@ -1,6 +1,6 @@
 """문서가 코드와 어긋나지 않는지 지킵니다.
 
-`docs/reference.md` 는 API 표면 전체를, `README.md` 는 사용자가 처음 보는 것들을
+`docs/reference.md` 는 API 표면 전체를, `docs/quickstart.md` 는 사용자가 처음 보는 것들을
 담당합니다. 문장까지 검사하지는 않고, **이름과 숫자**처럼 틀리면 사용자가 바로
 헛짚게 되는 것만 봅니다.
 """
@@ -25,9 +25,9 @@ from pykorail.options import ReserveOption, TrainType
 from pykorail.resources import ReservationResource, StationResource, TicketResource, TrainResource
 
 ROOT = Path(__file__).resolve().parent.parent
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+QUICKSTART = (ROOT / "docs/quickstart.md").read_text(encoding="utf-8")
 REFERENCE = (ROOT / "docs/reference.md").read_text(encoding="utf-8")
-DOCS = README + REFERENCE
+DOCS = QUICKSTART + REFERENCE
 
 PASSENGER_TYPES = [
     "AdultPassenger",
@@ -190,7 +190,7 @@ class TestFacts:
         from pykorail._compat import MIN_PYTHON
 
         # when & then
-        assert f"파이썬 {'.'.join(map(str, MIN_PYTHON))} 이상" in README
+        assert f"파이썬 {'.'.join(map(str, MIN_PYTHON))} 이상" in QUICKSTART
 
     def test_passenger_signature_defaults_match(self) -> None:
         """문서가 보여주는 기본값이 실제 시그니처와 같아야 합니다."""
@@ -218,12 +218,19 @@ def _visible_lines(text: str) -> list[str]:
     return [line for line, depth, opened in trio if depth == 0 and not opened]
 
 
-class TestReadmeShape:
-    """README 는 "처음 보는 사람" 용입니다 — 길어지면 레퍼런스로 보내세요."""
+class TestQuickstartShape:
+    """루트 README는 비우고 사용 안내의 내용·길이는 별도 문서에서 검증합니다."""
 
     def test_links_to_the_reference(self) -> None:
         # when & then
-        assert "docs/reference.md" in README
+        assert "reference.md" in QUICKSTART
+
+    def test_root_readme_remains_empty(self) -> None:
+        # when
+        content = (ROOT / "README.md").read_bytes()
+
+        # then
+        assert content == b""
 
     def test_stays_short(self) -> None:
         """레퍼런스가 다시 README 로 새어 들어오는 것을 막습니다.
@@ -232,7 +239,7 @@ class TestReadmeShape:
         전체 줄 수보다 **펼쳐진 채 보이는 분량**이 실제 부담입니다.
         """
         # when
-        visible = _visible_lines(README)
+        visible = _visible_lines(QUICKSTART)
 
         # then
         assert len(visible) < 200, "레퍼런스성 내용은 docs/reference.md 로 옮기세요"
@@ -240,13 +247,13 @@ class TestReadmeShape:
     def test_shows_install_and_usage_early(self) -> None:
         """설치와 첫 예제가 첫 화면 안에 있어야 합니다."""
         # when
-        head = "\n".join(README.splitlines()[:40])
+        head = "\n".join(QUICKSTART.splitlines()[:40])
 
         # then
-        assert "pip install pykorail" in head
+        assert "uv sync" in head
         assert "korail.trains.search" in head
 
     def test_has_no_table_of_contents(self) -> None:
         """목차가 필요할 만큼 길면 이미 너무 깁니다."""
         # when & then
-        assert "## 목차" not in README
+        assert "## 목차" not in QUICKSTART

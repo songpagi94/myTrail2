@@ -1,6 +1,6 @@
 # API 레퍼런스
 
-pykorail 의 전체 API 표면입니다. 처음이라면 [README](../README.md) 의 예제부터 보세요.
+pykorail 의 전체 API 표면입니다. 처음이라면 [빠른 시작](quickstart.md)의 예제부터 보세요.
 
 이 문서는 `tests/test_readme.py` 가 소스와 대조합니다 — 메서드·필드·코드값이
 어긋나면 테스트가 실패하므로, 코드를 바꿨다면 여기도 함께 고쳐야 합니다.

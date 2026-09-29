@@ -37,7 +37,8 @@ fallback = ["requests>=2.31.0"]
 bot = ["python-telegram-bot>=22,<23", "cryptography>=42", "python-dotenv>=1"]
 
 [project.scripts]
-pykorail-bot = "pykorail_bot.main:main"
+pykorail-bot = "srtgo.bot.main:main"
+srtgo-bot = "srtgo.bot.main:main"
 
 [project.urls]
 Homepage = "https://github.com/devgyurak/pykorail"
@@ -58,10 +59,10 @@ fallback-version = "0.0.0"
 version-file = "src/pykorail/_version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pykorail", "src/pykorail_bot"]
+packages = ["src/pykorail", "src/srtgo"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/pykorail", "src/pykorail_bot", "tests", "runtest.py", "README.md", "docs", ".env.example", "LICENSE", "THIRD_PARTY_NOTICES.md"]
+include = ["src/pykorail", "src/srtgo", "tests", "runtest.py", "README.md", "docs", ".env.example", "LICENSE", "THIRD_PARTY_NOTICES.md"]
 
 [dependency-groups]
 dev = [
@@ -136,12 +137,12 @@ unresolved-import = "warn"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # 커버리지 게이트는 CI 가 아니라 로컬 실행에도 걸립니다 — 90% 아래로 내려가면 실패합니다.
-addopts = "-q --cov=pykorail --cov=pykorail_bot --cov-report=term-missing --cov-fail-under=90"
+addopts = "-q --cov=pykorail --cov=srtgo --cov-report=term-missing --cov-fail-under=90"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
-source = ["src/pykorail", "src/pykorail_bot"]
+source = ["src/pykorail", "src/srtgo"]
 branch = true
 
 [tool.coverage.report]

@@ -354,7 +354,7 @@ def test_every_test_file_is_checked() -> None:
     assert set(TEST_FILES) == from_source, "33번 줄 글롭이 좁아지거나 넓어졌습니다"
 
 
-@pytest.mark.parametrize("subdir", ["src/pykorail", "src/pykorail_bot", "tests"])
+@pytest.mark.parametrize("subdir", ["src/pykorail", "src/srtgo", "tests"])
 def test_encoding_check_covers_every_file(subdir: str) -> None:
     """한쪽을 통째로 빠뜨리는 것뿐 아니라 파일 하나가 새는 것도 잡습니다."""
     # given

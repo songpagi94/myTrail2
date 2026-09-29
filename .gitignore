@@ -34,6 +34,7 @@ src/pykorail/_version.py
 .env.*
 !.env.example
 /bot-data/
+/data/
 
 # 리버스 엔지니어링용 APK 와 디컴파일 결과 — 절대 커밋하지 않습니다.
 *.apk

@@ -1,7 +1,7 @@
 # Third-party notices
 
 The Telegram input, pagination, selection and notification workflow in
-`src/pykorail_bot` is adapted from the myTrail / srtgo project:
+`src/srtgo` is adapted from the myTrail / srtgo project:
 https://github.com/songpagi94/myTrail (derived from https://github.com/lapis42/srtgo).
 The legacy SRT/KTX HTTP implementations are not included.
 

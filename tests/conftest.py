@@ -20,7 +20,7 @@ from tests.payloads import (
     TICKET_SEAT_PAYLOAD,
 )
 
-pytest_plugins = ("tests.bot_support",)
+pytest_plugins = ("tests.mytrail_support",)
 
 
 class FakeResponse:
