@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from dataclasses import replace
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -183,6 +183,53 @@ def test_sleep_is_interruptible() -> None:
 
     # then
     assert stop.is_set()
+
+
+def test_sleep_draws_original_mytrail_gamma_distribution_each_time(monkeypatch) -> None:
+    # given
+    gamma = Mock(side_effect=[4.0, 7.0])
+    monkeypatch.setattr(service, "gammavariate", gamma)
+    monkeypatch.setenv("BOT_POLL_SECONDS", "300")
+    stop = Mock(spec=threading.Event)
+
+    # when
+    service._sleep(stop)
+    service._sleep(stop)
+
+    # then
+    assert gamma.call_args_list == [call(21.08, 0.25), call(21.08, 0.25)]
+    assert stop.wait.call_args_list == [call(timeout=5.23), call(timeout=8.23)]
+
+
+@pytest.mark.parametrize("first_result", [[], TimeoutError()])
+def test_empty_search_and_retryable_error_use_gamma_wait(monkeypatch, first_result) -> None:
+    # given
+    gamma = Mock(return_value=4.0)
+    monkeypatch.setattr(service, "gammavariate", gamma)
+    rail = Mock()
+    rail.search_train.side_effect = [first_result, [TRAIN]]
+    rail.reserve.return_value = RESERVATION
+    stop = Mock(spec=threading.Event)
+    stop.is_set.return_value = False
+
+    # when
+    service.poll_and_reserve(
+        rail,
+        PARAMS,
+        [0],
+        ReserveOption.GENERAL_ONLY,
+        Mock(),
+        Mock(return_value=True),
+        stop,
+        PARAMS["passengers"],
+        [TRAIN],
+    )
+
+    # then
+    gamma.assert_called_once_with(21.08, 0.25)
+    stop.wait.assert_called_once_with(timeout=5.23)
+    assert rail.search_train.call_count == 2
+    rail.reserve.assert_called_once()
 
 
 @pytest.mark.parametrize("state", ["RESERVING", "PAYING", "CANCELLING"])

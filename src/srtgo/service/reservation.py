@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import threading
 from datetime import datetime
-from typing import TYPE_CHECKING
+from random import gammavariate
+from typing import TYPE_CHECKING, Final
 
 from pykorail import ReserveOption, SoldOutError
 from srtgo.rail.ktx.client import KST
@@ -17,6 +17,12 @@ if TYPE_CHECKING:
     from pykorail import Passenger, Reservation, Train
     from pykorail.options import ReserveOptionCode
     from srtgo.rail.ktx.client import Korail
+
+
+# myTrail과 같은 분포입니다. 평균은 shape * scale + min = 6.5초입니다.
+RESERVE_INTERVAL_SHAPE: Final = 21.08
+RESERVE_INTERVAL_SCALE: Final = 0.25
+RESERVE_INTERVAL_MIN: Final = 1.23
 
 
 def train_key(train: Train) -> tuple[str, str, str, str, str]:
@@ -35,8 +41,8 @@ def is_seat_available(train: Train, seat_option: ReserveOptionCode) -> bool:
 
 
 def _sleep(cancel_event: threading.Event) -> None:
-    # 서버 운영자가 간격을 지정하되 busy loop는 허용하지 않습니다.
-    cancel_event.wait(timeout=max(10, float(os.environ.get("BOT_POLL_SECONDS", "30"))))
+    interval = gammavariate(RESERVE_INTERVAL_SHAPE, RESERVE_INTERVAL_SCALE) + RESERVE_INTERVAL_MIN
+    cancel_event.wait(timeout=interval)
 
 
 def poll_and_reserve(

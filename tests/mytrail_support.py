@@ -14,7 +14,7 @@ from telegram import Message
 
 from pykorail import AdultPassenger, Reservation, Train
 from srtgo.bot import handlers, session, storage
-from srtgo.service import journal
+from srtgo.service import journal, payment
 from tests.payloads import TRAIN_INFO
 
 TRAIN = replace(Train.from_response(TRAIN_INFO), dep_date="20991003", run_date="20991003", arr_date="20991003")
@@ -50,6 +50,8 @@ def trail_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(handlers, "_SESSION", session.Session())
     journal.initialize()
     monkeypatch.setattr(handlers.svc_auth, "create_rail", Mock(side_effect=AssertionError("실제 로그인 금지")))
+    # 핸들러 통합 테스트는 실제 3분을 기다리지 않습니다. 분포/대기 동작은 별도로 검증합니다.
+    monkeypatch.setattr(payment, "gammavariate", Mock(return_value=0.001))
     return tmp_path
 
 

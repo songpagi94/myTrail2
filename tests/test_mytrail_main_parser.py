@@ -48,8 +48,6 @@ def test_run_needs_no_user_credential(trail_env, monkeypatch) -> None:
     [
         ("BOT_TOKEN", ""),
         ("BOT_DB_KEY", "invalid"),
-        ("BOT_POLL_SECONDS", "1"),
-        ("BOT_POLL_SECONDS", "nan"),
         ("BOT_ENABLE_PAYMENTS", "false"),
     ],
 )
@@ -97,6 +95,22 @@ def test_missing_allowlist_starts_bot_for_id_discovery(trail_env, monkeypatch) -
     # then
     app.run_polling.assert_called_once_with(drop_pending_updates=True, allowed_updates=["message", "callback_query"])
     assert not auth_guard.is_allowed(111)
+
+
+@pytest.mark.parametrize("old_interval", ["30", "1", "nan"])
+def test_old_fixed_poll_interval_only_warns(trail_env, monkeypatch, caplog, old_interval) -> None:
+    # given
+    app = Mock()
+    monkeypatch.setenv("BOT_POLL_SECONDS", old_interval)
+    monkeypatch.setattr(main, "build_application", Mock(return_value=app))
+    monkeypatch.setattr(main, "load_dotenv", Mock())
+
+    # when
+    main.main(["run"])
+
+    # then
+    app.run_polling.assert_called_once()
+    assert "BOT_POLL_SECONDS는 더 이상 사용하지 않습니다" in caplog.text
 
 
 def test_old_bot_data_requires_explicit_migration(trail_env, monkeypatch) -> None:

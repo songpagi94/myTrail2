@@ -434,7 +434,7 @@ async def on_pick(update: Update, context: BotContext) -> None:
     context.user_data["pending_indices"] = indices
     cards = storage.list_cards(tid)
     await cq.edit_message_text(
-        "좌석 확보 시 자동 결제할 카드를 선택하세요.",
+        "좌석 확보 후 평균 3분(무작위 대기) 뒤 자동 결제할 카드를 선택하세요. 결제기한이 짧으면 대기를 줄입니다.",
         reply_markup=_preset_card_keyboard(cards),
     )
 
@@ -465,11 +465,23 @@ async def on_preset_card(update: Update, context: BotContext) -> None:
     bot = context.application.bot
     loop = asyncio.get_running_loop()
 
+    def on_payment_scheduled(scheduled: _dt.datetime) -> None:
+        asyncio.run_coroutine_threadsafe(
+            notifier.send_text(
+                bot,
+                tid,
+                f"예약 성공! 아직 결제 전입니다.\n자동결제 예정: {scheduled:%Y-%m-%d %H:%M:%S} (한국시간)\n"
+                "대기 중 /cancel을 보내면 자동결제를 중단하고 예약을 취소합니다.",
+            ),
+            loop,
+        )
+
     def on_success(reservation: Reservation) -> None:
         # 카드 선택은 자동결제 동의입니다. 선택 당시 정보로만 결제하며 중단 후에는 결제하지 않습니다.
         if preset_card and not cancel_event.is_set() and not reservation.is_waiting:
             try:
-                ok = svc_pay.pay_with_saved_card(search["rail"], reservation, preset_card)
+                ready = svc_pay.wait_for_auto_payment(reservation, cancel_event, on_payment_scheduled)
+                ok = ready and svc_pay.pay_with_saved_card(search["rail"], reservation, preset_card)
             except Exception:
                 asyncio.run_coroutine_threadsafe(
                     notifier.send_text(
@@ -487,6 +499,9 @@ async def on_preset_card(update: Update, context: BotContext) -> None:
                 return
         pending = {"reservation": reservation, "rail": search["rail"], "message_id": None}
         _SESSION.set_pending(tid, pending)
+        if cancel_event.is_set():
+            # /cancel은 이 콜백이 끝난 뒤 예약을 취소합니다. 새 결제 버튼을 보내지 않습니다.
+            return
 
         async def announce() -> None:
             pending["message_id"] = await notifier.send_seat_secured(bot, tid, reservation)
@@ -525,7 +540,7 @@ async def on_preset_card(update: Update, context: BotContext) -> None:
     _SESSION.start_poll(tid, task, cancel_event)
     context.user_data.pop("search", None)
     start_msg = (
-        "예약 시도 시작. 좌석 잡히면 자동 결제합니다."
+        "예약 시도 시작. 좌석 확보 후 평균 3분(무작위 대기) 뒤 자동 결제합니다. 결제기한이 짧으면 대기를 줄입니다."
         if preset_card_id
         else "예약 시도 시작. 좌석 잡히면 알림 드립니다."
     )
@@ -952,7 +967,12 @@ async def cmd_status(update: Update, context: BotContext) -> None:
     tid = update.effective_user.id
     record = journal.current(tid)
     if _SESSION.is_polling(tid):
-        await update.message.reply_text("예약 시도 중입니다. /cancel로 중단할 수 있습니다.")
+        message = (
+            "예약 완료 후 자동결제 대기 또는 처리 중입니다."
+            if record and record[0] != "RESERVING"
+            else "예약 시도 중입니다."
+        )
+        await update.message.reply_text(message + " /cancel로 중단할 수 있지만 이미 전송한 결제는 철회할 수 없습니다.")
         return
     if record is None:
         await update.message.reply_text("확인 대기 중인 예약·결제가 없습니다.")

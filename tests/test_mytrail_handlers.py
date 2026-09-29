@@ -476,6 +476,100 @@ async def test_auto_payment_exception_does_not_offer_second_charge(trail_env, mo
     assert "자동 재결제하지 않습니다" in ctx.bot.send_message.call_args.kwargs["text"]
 
 
+async def test_cancel_during_auto_payment_delay_cancels_reservation_without_charge(trail_env, monkeypatch) -> None:
+    # given
+    registered(cards=True)
+    ctx = search_context()
+    ctx.user_data["pending_indices"] = [0]
+    rail = ctx.user_data["search"]["rail"]
+    card_id = storage.list_cards(111)[0]["id"]
+    scheduled = asyncio.Event()
+    ctx.bot.send_message.side_effect = lambda **kwargs: scheduled.set() or Mock(message_id=10)
+    monkeypatch.setattr(h.svc_pay, "gammavariate", Mock(return_value=180.0))
+    monkeypatch.setattr(
+        h.svc_resv, "poll_and_reserve", lambda rail, params, indices, option, success, *rest: success(RESERVATION)
+    )
+    await h.on_preset_card(update(data=f"preset:card:{card_id}"), ctx)
+    await asyncio.wait_for(scheduled.wait(), timeout=2)
+
+    # when
+    await asyncio.wait_for(h.cmd_cancel(update(), ctx), timeout=2)
+
+    # then
+    rail.pay_with_card.assert_not_called()
+    rail.cancel.assert_called_once_with(RESERVATION)
+    assert h._SESSION.get_pending(111) is None
+    assert "자동결제 예정" in ctx.bot.send_message.call_args.kwargs["text"]
+
+
+async def test_auto_payment_announces_schedule_and_completion(trail_env, monkeypatch) -> None:
+    # given
+    registered(cards=True)
+    ctx = search_context()
+    ctx.user_data["pending_indices"] = [0]
+    rail = ctx.user_data["search"]["rail"]
+    card_id = storage.list_cards(111)[0]["id"]
+    schedule = Mock()
+    monkeypatch.setattr(h.svc_pay, "automatic_payment_delay", Mock(return_value=0.001))
+    monkeypatch.setattr(
+        h.svc_resv, "poll_and_reserve", lambda rail, params, indices, option, success, *rest: success(RESERVATION)
+    )
+    ctx.bot.send_message.side_effect = lambda **kwargs: schedule(kwargs["text"]) or Mock(message_id=10)
+
+    # when
+    await h.on_preset_card(update(data=f"preset:card:{card_id}"), ctx)
+    await h._SESSION.wait_poll(111)
+    await asyncio.sleep(0)
+
+    # then
+    assert "자동결제 예정" in schedule.call_args_list[0].args[0]
+    assert "결제 완료" in schedule.call_args_list[-1].args[0]
+    rail.pay_with_card.assert_called_once()
+
+
+async def test_shutdown_during_auto_payment_delay_keeps_unpaid_reservation(trail_env, monkeypatch) -> None:
+    # given
+    registered(cards=True)
+    ctx = search_context()
+    ctx.user_data["pending_indices"] = [0]
+    rail = ctx.user_data["search"]["rail"]
+    card_id = storage.list_cards(111)[0]["id"]
+    scheduled = asyncio.Event()
+    ctx.bot.send_message.side_effect = lambda **kwargs: scheduled.set() or Mock(message_id=10)
+    monkeypatch.setattr(h.svc_pay, "gammavariate", Mock(return_value=180.0))
+    monkeypatch.setattr(
+        h.svc_resv, "poll_and_reserve", lambda rail, params, indices, option, success, *rest: success(RESERVATION)
+    )
+    await h.on_preset_card(update(data=f"preset:card:{card_id}"), ctx)
+    await asyncio.wait_for(scheduled.wait(), timeout=2)
+    # 모의 예약 콜백 대신 실제 어댑터가 저장할 미결제 기록을 재현합니다.
+    journal.begin(111, "account", "RESERVING")
+    journal.reserved(111, RESERVATION.rsv_id)
+
+    # when
+    await asyncio.wait_for(h._SESSION.shutdown(), timeout=2)
+
+    # then
+    rail.pay_with_card.assert_not_called()
+    rail.cancel.assert_not_called()
+    rail.close.assert_called_once()
+    assert journal.current(111) == ("RESERVED", RESERVATION.rsv_id)
+
+
+async def test_status_describes_auto_payment_wait_without_resolve_button(trail_env, monkeypatch) -> None:
+    # given
+    pending()
+    monkeypatch.setattr(h._SESSION, "is_polling", Mock(return_value=True))
+    event = update()
+
+    # when
+    await h.cmd_status(event, context())
+
+    # then
+    assert "자동결제 대기" in event.message.reply_text.call_args.args[0]
+    assert "reply_markup" not in event.message.reply_text.call_args.kwargs
+
+
 async def test_cancel_during_reserve_prevents_selected_auto_payment(trail_env, monkeypatch) -> None:
     # given
     registered(cards=True)

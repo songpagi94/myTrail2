@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import math
 import os
 
 from cryptography.fernet import Fernet
@@ -163,9 +162,10 @@ def main(argv: list[str] | None = None) -> None:
                 "이전 BOT_ENABLE_PAYMENTS 설정을 제거하세요. "
                 "myTrail에서는 사용자가 예약 전 카드를 선택하면 자동결제에 동의합니다."
             )
-        interval = float(os.environ.get("BOT_POLL_SECONDS", "30"))
-        if not math.isfinite(interval) or not 10 <= interval <= 3600:
-            raise ValueError("BOT_POLL_SECONDS는 10~3600초여야 합니다.")
+        if "BOT_POLL_SECONDS" in os.environ:
+            logger.warning(
+                "BOT_POLL_SECONDS는 더 이상 사용하지 않습니다. 조회 후 대기는 myTrail과 같은 평균 6.5초 감마분포입니다."
+            )
         storage._get_cipher()
         # 앞서 만든 별도 봇의 데이터는 다른 형식입니다. 조용히 버리고 새 봇을 켜지 않습니다.
         from pathlib import Path
