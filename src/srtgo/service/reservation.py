@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from pykorail import Passenger, Reservation, Train
     from pykorail.options import ReserveOptionCode
     from srtgo.rail.ktx.client import Korail
+    from srtgo.service.progress import PollProgress
 
 
 # myTrail과 같은 분포입니다. 평균은 shape * scale + min = 6.5초입니다.
@@ -55,6 +56,7 @@ def poll_and_reserve(
     cancel_event: threading.Event,
     passengers: Sequence[Passenger],
     selected_trains: Sequence[Train],
+    progress: PollProgress | None = None,
 ) -> None:
     """열차 목록 순서 변경이나 알림 실패가 다른 열차/중복 예약으로 이어지지 않게 합니다."""
     targets = {train_key(selected_trains[index]) for index in train_indices}
@@ -65,7 +67,13 @@ def poll_and_reserve(
         if params["date"] == now.strftime("%Y%m%d"):
             params["time"] = max(params["time"], now.strftime("%H%M%S"))
         try:
-            trains = rail.search_train(**params)
+            if progress is not None:
+                progress.query_started()
+            try:
+                trains = rail.search_train(**params)
+            finally:
+                if progress is not None:
+                    progress.query_finished()
         except Exception as error:
             if not on_error(error):
                 return

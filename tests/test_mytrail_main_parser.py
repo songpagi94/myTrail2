@@ -236,6 +236,48 @@ def test_invalid_or_srt_query_is_rejected(text: str) -> None:
         parser.parse(text)
 
 
+@pytest.mark.parametrize(
+    ("alias", "canonical"),
+    [
+        ("울산", "울산(통도사)"),
+        ("울산역", "울산(통도사)"),
+        ("통도사", "울산(통도사)"),
+        ("울산（통도사）역", "울산(통도사)"),
+        ("울산(통도사)", "울산(통도사)"),
+        ("여수", "여수EXPO"),
+        ("여수엑스포역", "여수EXPO"),
+        ("여수expo", "여수EXPO"),
+        ("여수EXPO", "여수EXPO"),
+        ("부산역", "부산"),
+        ("서울역", "서울"),
+    ],
+)
+def test_station_aliases_apply_to_both_departure_and_arrival(alias, canonical) -> None:
+    # when
+    departure = parser.parse(f"{alias} 대전 20991003 0900")
+    arrival = parser.parse(f"대전 {alias} 20991003 0900")
+
+    # then
+    assert departure["dep"] == canonical
+    assert arrival["arr"] == canonical
+
+
+@pytest.mark.parametrize("station", ["광주", "김천", "구미", "천안", "서을", "역"])
+def test_ambiguous_or_unknown_station_is_not_guessed(station) -> None:
+    # when
+    result = parser.parse(f"{station} 부산 20991003 0900")
+
+    # then
+    assert result["dep"] == station
+
+
+@pytest.mark.parametrize("route", ["울산 울산(통도사)", "여수 여수EXPO", "부산역 부산"])
+def test_aliases_cannot_create_same_departure_and_arrival(route) -> None:
+    # when & then
+    with pytest.raises(parser.ParseError, match="출발역과 도착역"):
+        parser.parse(f"{route} 20991003 0900")
+
+
 @pytest.mark.parametrize(("raw", "expected"), [("111, 222,,bad", {111, 222}), ("", set())])
 def test_allowlist_preserves_mytrail_policy(monkeypatch, raw, expected) -> None:
     # given

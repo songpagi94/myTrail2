@@ -440,9 +440,10 @@ async def test_original_booking_and_payment_choice(trail_env, monkeypatch, autom
         h.svc_resv, "poll_and_reserve", lambda rail, params, indices, option, success, *rest: success(RESERVATION)
     )
     data = f"preset:card:{card_id}" if automatic else "preset:manual"
+    event = update(data=data)
 
     # when
-    await h.on_preset_card(update(data=data), ctx)
+    await h.on_preset_card(event, ctx)
     await h._SESSION.wait_poll(111)
     await asyncio.sleep(0)
 
@@ -451,6 +452,12 @@ async def test_original_booking_and_payment_choice(trail_env, monkeypatch, autom
     assert (h._SESSION.get_pending(111) is None) is automatic
     assert "search" not in ctx.user_data
     assert ctx.bot.send_message.await_count >= 1
+    expected = (
+        "예약 시도 시작. 좌석 확보 후 약 3분 뒤 자동 결제합니다."
+        if automatic
+        else "예약 시도 시작. 좌석 잡히면 알림 드립니다."
+    )
+    event.callback_query.edit_message_text.assert_awaited_once_with(expected)
 
 
 async def test_auto_payment_exception_does_not_offer_second_charge(trail_env, monkeypatch) -> None:
@@ -578,7 +585,7 @@ async def test_cancel_during_reserve_prevents_selected_auto_payment(trail_env, m
     rail = ctx.user_data["search"]["rail"]
     card_id = storage.list_cards(111)[0]["id"]
 
-    def reserve_after_stop(rail, params, indices, option, success, error, stop, passengers, selected) -> None:
+    def reserve_after_stop(rail, params, indices, option, success, error, stop, passengers, selected, progress) -> None:
         stop.set()
         success(RESERVATION)
 

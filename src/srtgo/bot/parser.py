@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import logging
 import re
+import unicodedata
 
 from ..rail.ktx.client import KST
 
@@ -29,8 +30,14 @@ _PASSENGER_ALIAS: dict[str, str] = {
     "유아": "toddler",
 }
 
-# KTX 역명 별칭 (코레일 API는 한국어 역명을 직접 수신)
-_KTX_ALIAS: dict[str, str] = {}
+# myTrail의 명시적 별칭 방식만 사용합니다. 다른 역으로 이어질 수 있는 유사도 추측은 하지 않습니다.
+_KTX_ALIAS: dict[str, str] = {
+    "울산": "울산(통도사)",
+    "통도사": "울산(통도사)",
+    "여수": "여수EXPO",
+    "여수엑스포": "여수EXPO",
+    "여수expo": "여수EXPO",
+}
 
 
 class ParseError(Exception):
@@ -60,8 +67,11 @@ def _normalize_time(s: str) -> str:
     raise ParseError(f"시간 형식 오류: '{s}' — HHMM 또는 HH:MM")
 
 
-def _normalize_station(name: str, rail: str) -> str:
-    return _KTX_ALIAS.get(name, name)
+def _normalize_station(name: str) -> str:
+    name = unicodedata.normalize("NFKC", name).strip()
+    if name.endswith("역") and len(name) > 1:
+        name = name[:-1]
+    return _KTX_ALIAS.get(name.casefold(), name)
 
 
 def _parse_rail(tok: str) -> str | None:
@@ -94,8 +104,6 @@ def parse(text: str, today: str | None = None, **_kwargs) -> dict:
         datetime.datetime.strptime(date + time_val, "%Y-%m-%d%H%M%S")
     except ValueError:
         raise ParseError("유효하지 않은 날짜 또는 시간입니다.") from None
-    if dep_raw == arr_raw:
-        raise ParseError("출발역과 도착역을 다르게 입력하세요.")
 
     rail = "KTX"
     seat_pref = "GENERAL_ONLY"
@@ -115,8 +123,10 @@ def parse(text: str, today: str | None = None, **_kwargs) -> dict:
                 "어린이, 유아, 경로, 중증장애인, 경증장애인"
             )
 
-    dep = _normalize_station(dep_raw, rail)
-    arr = _normalize_station(arr_raw, rail)
+    dep = _normalize_station(dep_raw)
+    arr = _normalize_station(arr_raw)
+    if dep == arr:
+        raise ParseError("출발역과 도착역을 다르게 입력하세요.")
 
     passengers = {"adult": 1, "child": 0, "senior": 0, "disability1to3": 0, "disability4to6": 0, "toddler": 0}
     if passenger_type:

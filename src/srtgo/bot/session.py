@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import threading
 
+from srtgo.service.progress import PollProgress, PollSnapshot
+
 
 class AlreadyPollingError(Exception):
     """동일 사용자에게 진행 중 폴링이 이미 있음."""
@@ -14,22 +16,31 @@ class Session:
     def __init__(self) -> None:
         self._polls: dict[int, tuple[asyncio.Task, threading.Event]] = {}
         self._pending: dict[int, dict] = {}
+        self._progress: dict[int, PollProgress] = {}
 
     def start_poll(
         self,
         telegram_id: int,
         task: asyncio.Task,
         cancel_event: threading.Event,
+        progress: PollProgress | None = None,
     ) -> None:
         if self.is_polling(telegram_id):
             raise AlreadyPollingError(f"tid={telegram_id} 이미 폴링 중")
         self._polls[telegram_id] = (task, cancel_event)
+        self._progress[telegram_id] = progress if progress is not None else PollProgress()
         task.add_done_callback(lambda completed: self._finished(telegram_id, completed))
 
     def _finished(self, telegram_id: int, task: asyncio.Task) -> None:
         entry = self._polls.get(telegram_id)
         if entry is not None and entry[0] is task:
             self._polls.pop(telegram_id, None)
+            self._progress.pop(telegram_id, None)
+
+    def get_progress(self, telegram_id: int) -> PollSnapshot | None:
+        """해당 사용자의 진행 중인 작업만 조회합니다. 끝난 작업은 반환하지 않습니다."""
+        progress = self._progress.get(telegram_id)
+        return progress.snapshot() if progress is not None and self.is_polling(telegram_id) else None
 
     def is_polling(self, telegram_id: int) -> bool:
         entry = self._polls.get(telegram_id)

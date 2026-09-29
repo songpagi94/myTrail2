@@ -18,6 +18,7 @@ from ..service import auth as svc_auth
 from ..service import journal
 from ..service import payment as svc_pay
 from ..service import reservation as svc_resv
+from ..service.progress import PollProgress
 from . import notifier, parser, storage
 from . import session as _session_mod
 from .access import BotContext, erase_input, guarded
@@ -464,6 +465,7 @@ async def on_preset_card(update: Update, context: BotContext) -> None:
     cancel_event = threading.Event()
     bot = context.application.bot
     loop = asyncio.get_running_loop()
+    progress = PollProgress()
 
     def on_payment_scheduled(scheduled: _dt.datetime) -> None:
         asyncio.run_coroutine_threadsafe(
@@ -529,6 +531,7 @@ async def on_preset_card(update: Update, context: BotContext) -> None:
                 cancel_event,
                 search["passengers"],
                 search["trains"],
+                progress,
             )
         except Exception as error:
             await notifier.send_text(bot, tid, f"예약 작업 중단: {safe_error(error)} /status로 확인하세요.")
@@ -537,10 +540,10 @@ async def on_preset_card(update: Update, context: BotContext) -> None:
                 await asyncio.to_thread(search["rail"].close)
 
     task = asyncio.create_task(runner())
-    _SESSION.start_poll(tid, task, cancel_event)
+    _SESSION.start_poll(tid, task, cancel_event, progress)
     context.user_data.pop("search", None)
     start_msg = (
-        "예약 시도 시작. 좌석 확보 후 평균 3분(무작위 대기) 뒤 자동 결제합니다. 결제기한이 짧으면 대기를 줄입니다."
+        "예약 시도 시작. 좌석 확보 후 약 3분 뒤 자동 결제합니다."
         if preset_card_id
         else "예약 시도 시작. 좌석 잡히면 알림 드립니다."
     )
@@ -972,6 +975,13 @@ async def cmd_status(update: Update, context: BotContext) -> None:
             if record and record[0] != "RESERVING"
             else "예약 시도 중입니다."
         )
+        progress = _SESSION.get_progress(tid)
+        if progress is not None:
+            message += f"\n경과: {progress.elapsed_seconds}초 · 조회 시도: {progress.attempts}회"
+            if progress.searching:
+                message += f"\n현재 {progress.attempts}번째 조회 응답을 기다리고 있습니다."
+            elif not record:
+                message += "\n조회 준비·결과 처리 또는 다음 조회 대기 중입니다."
         await update.message.reply_text(message + " /cancel로 중단할 수 있지만 이미 전송한 결제는 철회할 수 없습니다.")
         return
     if record is None:
