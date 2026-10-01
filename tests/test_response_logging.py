@@ -137,7 +137,7 @@ def test_empty_login_response_distinguishes_missing_result(caplog) -> None:
 
 
 @pytest.mark.parametrize("code", [-2000, "-2000", 2000, 0])
-def test_forbidden_response_logs_code_without_id_or_message(caplog, code) -> None:
+def test_forbidden_response_logs_code_and_message_without_id(caplog, code) -> None:
     # given
     payload = {**LOGIN_FORBIDDEN, "code": code}
     response = FakeResponse(payload)
@@ -152,4 +152,64 @@ def test_forbidden_response_logs_code_without_id_or_message(caplog, code) -> Non
     assert f" code={code}" in caplog.text
     assert "h_msg_cd=[없음]" in caplog.text
     assert LOGIN_FORBIDDEN["id"] not in caplog.text
-    assert LOGIN_FORBIDDEN["message"] not in caplog.text
+    assert f"message={LOGIN_FORBIDDEN['message']}" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "private_text",
+    [
+        "test@example.test",
+        "010-1234-5678",
+        "1234567890123456",
+        "password=secret",
+        "token=secret",
+        "이름=테스트",
+        "abcDEF0123456789abcDEF0123456789",
+    ],
+)
+def test_server_message_masks_identifying_patterns(caplog, private_text) -> None:
+    # given
+    payload = {**LOGIN_FORBIDDEN, "message": f"이용 제한 안내 {private_text}"}
+    api = ApiClient(Mock(), Mock())
+    caplog.set_level(logging.INFO, logger="pykorail.responses")
+
+    # when
+    result = api._parse(FakeResponse(payload), API_ENDPOINTS["login"])
+
+    # then
+    assert result == payload
+    assert "message=이용 제한 안내" in caplog.text
+    assert private_text not in caplog.text
+
+
+def test_server_message_limits_length_and_removes_control_characters(caplog) -> None:
+    # given
+    payload = {**LOGIN_FORBIDDEN, "message": "안내\n\r\x1b\u2028" + "가" * 600}
+    api = ApiClient(Mock(), Mock())
+    caplog.set_level(logging.INFO, logger="pykorail.responses")
+
+    # when
+    api._parse(FakeResponse(payload), API_ENDPOINTS["login"])
+
+    # then
+    record = next(record for record in caplog.records if "message=" in record.getMessage())
+    message = record.getMessage().split("message=", 1)[1]
+    assert message.startswith("안내    ")
+    assert len(message) == 505
+    assert message.endswith("…[생략]")
+    assert "\n" not in message
+    assert "\x1b" not in message
+
+
+@pytest.mark.parametrize("message", [None, "", {"private": "secret"}, 123])
+def test_server_message_omits_missing_or_non_string_values(caplog, message) -> None:
+    # given
+    api = ApiClient(Mock(), Mock())
+    caplog.set_level(logging.INFO, logger="pykorail.responses")
+
+    # when
+    api._parse(FakeResponse({**LOGIN_FORBIDDEN, "message": message}), API_ENDPOINTS["login"])
+
+    # then
+    assert "message=[" in caplog.text
+    assert "secret" not in caplog.text

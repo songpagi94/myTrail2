@@ -213,4 +213,8 @@ NO_RESULTS = {"strResult": "FAIL", "h_msg_cd": "P100", "h_msg_txt": "결과 없�
 OK = {"strResult": "SUCC"}
 
 #: 서버 로그에서 확인한 403 응답 구조. 값은 개인정보 없는 진단 테스트용입니다.
-LOGIN_FORBIDDEN = {"code": -2000, "id": "private-response-id", "message": "private-response-message"}
+LOGIN_FORBIDDEN = {
+    "code": -2000,
+    "id": "private-response-id",
+    "message": "안정적인 환경에서 앱을 이용해 주시기 바랍니다.",
+}

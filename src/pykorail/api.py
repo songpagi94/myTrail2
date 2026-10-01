@@ -110,15 +110,16 @@ class ApiClient:
         if not isinstance(parsed, dict):
             response_logger.warning("코레일 응답 endpoint=%s: 객체가 아닌 JSON", _endpoint_name(url))
             raise TransportError(f"코레일 응답이 객체가 아닙니다: {type(parsed).__name__}")
-        # 자유 형식 메시지와 응답 본문에는 회원정보가 섞일 수 있어 허용한 메타데이터만 남깁니다.
+        # 응답 전체 대신 진단 필드만 남기고 안내 메시지의 식별정보는 마스킹합니다.
         result = parsed.get("strResult")
         response_logger.info(
-            "코레일 응답 endpoint=%s strResult=%s h_msg_cd=%s h_msg_txt=%s code=%s",
+            "코레일 응답 endpoint=%s strResult=%s h_msg_cd=%s h_msg_txt=%s code=%s message=%s",
             _endpoint_name(url),
             result if result in ("SUCC", "FAIL") else "UNKNOWN",
             diagnostic_code(parsed.get("h_msg_cd")),
             "[본문 생략]" if parsed.get("h_msg_txt") else "[없음]",
             diagnostic_code(parsed.get("code")),
+            _diagnostic_message(parsed.get("message")),
         )
         if result not in ("SUCC", "FAIL"):
             response_logger.warning(
@@ -153,6 +154,24 @@ def diagnostic_code(value: object) -> str:
 
 def _endpoint_name(url: str) -> str:
     return next((name for name, endpoint in API_ENDPOINTS.items() if endpoint == url), "unknown")
+
+
+def _diagnostic_message(value: object) -> str:
+    """안내 문구를 한 줄로 제한하고 이메일·번호·인증정보 패턴을 가립니다."""
+    if value is None or value == "":
+        return "[없음]"
+    if not isinstance(value, str):
+        return "[문자열 아닌 메시지 생략]"
+    message = re.sub(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]", " ", value)
+    message = re.sub(r"[\w.+-]+@[\w.-]+", "[이메일 마스킹]", message)
+    message = re.sub(
+        r"(?i)(password|passwd|pwd|token|sid|api[_ -]?key|비밀번호|회원번호|카드번호|이름)\s*[:=]\s*\S+",
+        r"\1=[마스킹]",
+        message,
+    )
+    message = re.sub(r"(?:\d[ -]?){5,}\d", "[번호 마스킹]", message)
+    message = re.sub(r"[A-Za-z0-9_+/=-]{24,}", "[식별정보 마스킹]", message)
+    return message[:500] + ("…[생략]" if len(message) > 500 else "")
 
 
 def _response_shape(payload: dict[str, Any]) -> str:
