@@ -146,7 +146,8 @@ def main(argv: list[str] | None = None) -> None:
         print(Fernet.generate_key().decode("ascii"))
         return
     load_dotenv(args.env_file, override=False)
-    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("pykorail.responses").setLevel(logging.INFO)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     lease = None
     try:

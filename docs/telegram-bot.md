@@ -81,6 +81,25 @@ uv run --locked --extra bot srtgo-bot run
 실행 시 텔레그램에 연결합니다. 코레일 로그인은 각 사용자가 조회할 때 수행합니다.
 PuTTY 창을 열어 두고 테스트하며, 종료는 Ctrl+C입니다. 새 인바운드 포트를 열 필요는 없습니다.
 
+### 서버 로그 확인
+
+터미널 출력과 파일에 함께 기록하려면 기존 봇을 종료한 뒤 실행합니다.
+
+```bash
+uv run --locked --extra bot srtgo-bot run 2>&1 | tee -a bot.log
+```
+
+다른 SSH 창에서 `tail -n 100 -f bot.log`로 확인합니다. systemd로 실행하는 경우에는
+`journalctl -u pykorail-bot -n 100 -f`로 확인합니다.
+
+코레일 응답마다 시각, 엔드포인트 이름, `strResult`, `h_msg_cd`를 기록합니다.
+로그인 실패는 `operation=login`, 검색 실패는 `operation=search`와 예외 종류를 기록합니다.
+`endpoint=code`는 로그인 암호화 키 준비 단계이므로, `endpoint=login` 전에 실패했는지도 구분할 수 있습니다.
+`strResult=UNKNOWN`은 결과 필드가 없거나 표준 값이 아닌 경우입니다. JSON이 아닌 응답도 별도로 기록합니다.
+서버 메시지 `h_msg_txt`는 존재 여부만 기록하고 원문은 생략합니다. 오류 로그의 `reason`은
+알려진 예외의 기본 설명이며 서버 메시지 원문이 아닙니다. 응답 본문·요청 폼·자격증명은 기록하지 않습니다.
+원본 응답을 출력하는 `verbose` 모드를 켜지 마세요.
+
 ## 4. 사용자: 텔레그램에서 등록·검색
 
 각자 봇과 **개인 대화**를 열고 `/start`, `/setup`을 보냅니다.

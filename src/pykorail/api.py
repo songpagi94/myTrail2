@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from pykorail.constants import API_KEY, APP_VERSION, DEVICE
+from pykorail.constants import API_ENDPOINTS, API_KEY, APP_VERSION, DEVICE
 from pykorail.exceptions import TransportError, error_for_code
 
 if TYPE_CHECKING:
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from pykorail.transport import HttpSession, Response
 
 logger = logging.getLogger(__name__)
+response_logger = logging.getLogger("pykorail.responses")
 
 
 @dataclass
@@ -65,7 +67,7 @@ class ApiClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        return self._parse(self._session.get(url, **_kwargs(params=params, headers=headers)))
+        return self._parse(self._session.get(url, **_kwargs(params=params, headers=headers)), url)
 
     def post(
         self,
@@ -75,7 +77,7 @@ class ApiClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        return self._parse(self._session.post(url, **_kwargs(data=data, params=params, headers=headers)))
+        return self._parse(self._session.post(url, **_kwargs(data=data, params=params, headers=headers)), url)
 
     def close(self) -> None:
         self._session.close()
@@ -91,15 +93,26 @@ class ApiClient:
         if payload.get("strResult") == "FAIL":
             raise error_for_code(payload.get("h_msg_cd"), payload.get("h_msg_txt"))
 
-    def _parse(self, response: Response) -> dict[str, Any]:
+    def _parse(self, response: Response, url: str = "") -> dict[str, Any]:
         if self.verbose:
             logger.debug("%s", response.text)
         try:
             parsed = json.loads(response.text)
         except json.JSONDecodeError as exc:
+            response_logger.warning("코레일 응답 endpoint=%s: JSON 해석 실패", _endpoint_name(url))
             raise TransportError(f"코레일 응답을 JSON 으로 읽지 못했습니다: {response.text[:200]!r}") from exc
         if not isinstance(parsed, dict):
+            response_logger.warning("코레일 응답 endpoint=%s: 객체가 아닌 JSON", _endpoint_name(url))
             raise TransportError(f"코레일 응답이 객체가 아닙니다: {type(parsed).__name__}")
+        # 자유 형식 메시지와 응답 본문에는 회원정보가 섞일 수 있어 허용한 메타데이터만 남깁니다.
+        result = parsed.get("strResult")
+        response_logger.info(
+            "코레일 응답 endpoint=%s strResult=%s h_msg_cd=%s h_msg_txt=%s",
+            _endpoint_name(url),
+            result if result in ("SUCC", "FAIL") else "UNKNOWN",
+            diagnostic_code(parsed.get("h_msg_cd")),
+            "[본문 생략]" if parsed.get("h_msg_txt") else "[없음]",
+        )
         return parsed
 
 
@@ -110,3 +123,16 @@ def _kwargs(**candidates: Any) -> dict[str, Any]:
     있어(빈 바디 vs 바디 없음), 앱이 보내는 모양을 유지하려면 아예 안 넘겨야 합니다.
     """
     return {key: value for key, value in candidates.items() if value is not None}
+
+
+def diagnostic_code(value: object) -> str:
+    """응답 코드만 허용하여 개인정보와 로그 개행 삽입을 차단합니다."""
+    if value is None or value == "":
+        return "[없음]"
+    if isinstance(value, str) and re.fullmatch(r"[A-Z][A-Z0-9_]{0,31}", value):
+        return value
+    return "[비표준 코드 생략]"
+
+
+def _endpoint_name(url: str) -> str:
+    return next((name for name, endpoint in API_ENDPOINTS.items() if endpoint == url), "unknown")

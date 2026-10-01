@@ -295,7 +295,7 @@ async def on_free_message(update: Update, context: BotContext) -> None:
     try:
         rail = await asyncio.to_thread(svc_auth.create_rail, rail_type, credentials=cred, owner=tid)
     except Exception as e:
-        await update.message.reply_text(f"로그인 실패: {safe_error(e)}")
+        await update.message.reply_text(f"로그인 실패: {safe_error(e, operation='login')}")
         return
 
     date = intent["date"].replace("-", "")
@@ -311,7 +311,7 @@ async def on_free_message(update: Update, context: BotContext) -> None:
         trains = await asyncio.to_thread(rail.search_train, **search_params)
     except Exception as e:
         await asyncio.to_thread(rail.close)
-        await update.message.reply_text(f"검색 실패: {safe_error(e)}")
+        await update.message.reply_text(f"검색 실패: {safe_error(e, operation='search')}")
         return
 
     if not trains:
