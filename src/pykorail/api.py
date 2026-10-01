@@ -94,6 +94,12 @@ class ApiClient:
             raise error_for_code(payload.get("h_msg_cd"), payload.get("h_msg_txt"))
 
     def _parse(self, response: Response, url: str = "") -> dict[str, Any]:
+        status = getattr(response, "status_code", None)
+        response_logger.info(
+            "코레일 HTTP endpoint=%s status=%s",
+            _endpoint_name(url),
+            status if type(status) is int and 100 <= status <= 599 else "UNKNOWN",
+        )
         if self.verbose:
             logger.debug("%s", response.text)
         try:
@@ -113,6 +119,13 @@ class ApiClient:
             diagnostic_code(parsed.get("h_msg_cd")),
             "[본문 생략]" if parsed.get("h_msg_txt") else "[없음]",
         )
+        if result not in ("SUCC", "FAIL"):
+            response_logger.warning(
+                "코레일 비표준 응답 endpoint=%s strResult_state=%s fields=%s",
+                _endpoint_name(url),
+                type(result).__name__ if "strResult" in parsed else "MISSING",
+                _response_shape(parsed),
+            )
         return parsed
 
 
@@ -129,10 +142,23 @@ def diagnostic_code(value: object) -> str:
     """응답 코드만 허용하여 개인정보와 로그 개행 삽입을 차단합니다."""
     if value is None or value == "":
         return "[없음]"
-    if isinstance(value, str) and re.fullmatch(r"[A-Z][A-Z0-9_]{0,31}", value):
+    # 오류 코드는 숫자나 음수로도 올 수 있습니다. 긴 숫자는 회원번호일 수 있어 제외합니다.
+    if type(value) is int and -999999 <= value <= 999999:
+        return str(value)
+    if isinstance(value, str) and re.fullmatch(r"(?:[A-Z][A-Z0-9_]{0,31}|-?\d{1,6})", value, flags=re.ASCII):
         return value
     return "[비표준 코드 생략]"
 
 
 def _endpoint_name(url: str) -> str:
     return next((name for name, endpoint in API_ENDPOINTS.items() if endpoint == url), "unknown")
+
+
+def _response_shape(payload: dict[str, Any]) -> str:
+    """비표준 응답의 필드명과 자료형만 제한된 길이로 기록합니다."""
+    fields = [
+        f"{key}:{type(value).__name__}"
+        for key, value in payload.items()
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]{0,63}", key, flags=re.ASCII)
+    ]
+    return ",".join(sorted(fields)[:32]) or "[없음]"
