@@ -113,11 +113,12 @@ class ApiClient:
         # 자유 형식 메시지와 응답 본문에는 회원정보가 섞일 수 있어 허용한 메타데이터만 남깁니다.
         result = parsed.get("strResult")
         response_logger.info(
-            "코레일 응답 endpoint=%s strResult=%s h_msg_cd=%s h_msg_txt=%s",
+            "코레일 응답 endpoint=%s strResult=%s h_msg_cd=%s h_msg_txt=%s code=%s",
             _endpoint_name(url),
             result if result in ("SUCC", "FAIL") else "UNKNOWN",
             diagnostic_code(parsed.get("h_msg_cd")),
             "[본문 생략]" if parsed.get("h_msg_txt") else "[없음]",
+            diagnostic_code(parsed.get("code")),
         )
         if result not in ("SUCC", "FAIL"):
             response_logger.warning(

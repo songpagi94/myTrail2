@@ -12,7 +12,7 @@ from pykorail.constants import API_ENDPOINTS
 from pykorail.exceptions import LoginFailedError
 from srtgo.bot.errors import safe_error
 from tests.conftest import FakeResponse
-from tests.payloads import LOGIN_FAIL
+from tests.payloads import LOGIN_FAIL, LOGIN_FORBIDDEN
 
 
 @pytest.mark.parametrize("method", ["get", "post"])
@@ -134,3 +134,22 @@ def test_empty_login_response_distinguishes_missing_result(caplog) -> None:
     # then
     assert result == {}
     assert "strResult_state=MISSING fields=[없음]" in caplog.text
+
+
+@pytest.mark.parametrize("code", [-2000, "-2000", 2000, 0])
+def test_forbidden_response_logs_code_without_id_or_message(caplog, code) -> None:
+    # given
+    payload = {**LOGIN_FORBIDDEN, "code": code}
+    response = FakeResponse(payload)
+    api = ApiClient(Mock(), Mock())
+    caplog.set_level(logging.INFO, logger="pykorail.responses")
+
+    # when
+    result = api._parse(response, API_ENDPOINTS["login"])
+
+    # then
+    assert result == payload
+    assert f" code={code}" in caplog.text
+    assert "h_msg_cd=[없음]" in caplog.text
+    assert LOGIN_FORBIDDEN["id"] not in caplog.text
+    assert LOGIN_FORBIDDEN["message"] not in caplog.text

@@ -211,3 +211,6 @@ LOGIN_FAIL = {"strResult": "FAIL", "h_msg_cd": "WRC000000", "h_msg_txt": "비밀
 NO_RESULTS = {"strResult": "FAIL", "h_msg_cd": "P100", "h_msg_txt": "결과 없음"}
 
 OK = {"strResult": "SUCC"}
+
+#: 서버 로그에서 확인한 403 응답 구조. 값은 개인정보 없는 진단 테스트용입니다.
+LOGIN_FORBIDDEN = {"code": -2000, "id": "private-response-id", "message": "private-response-message"}
