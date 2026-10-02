@@ -65,7 +65,7 @@ API_ENDPOINTS: Final[dict[str, str]] = {
 
 # --------------------------------------------------------------- 앱 신원값
 DEVICE: Final = "AD"
-APP_VERSION: Final = "250722002"
+APP_VERSION: Final = "250722001"
 API_KEY: Final = "korail1234567890"
 SID_KEY: Final = b"2485dd54d9deaa36"
 DEVICE_ID: Final = "558a4f02041657ea"
