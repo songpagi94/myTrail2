@@ -11,6 +11,8 @@ from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from pykorail.device.android_id import generate_android_id, validate_android_id
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,6 +56,15 @@ def exists(telegram_id: int) -> bool:
 
 
 def save(telegram_id: int, data: dict) -> None:
+    # 계정 재등록 때도 기존 기기 신원을 유지합니다.
+    data = dict(data)
+    previous = (
+        json.loads(_get_cipher().decrypt(_path(telegram_id).read_bytes()).decode("utf-8"))
+        if "android_id" not in data and exists(telegram_id)
+        else None
+    )
+    if previous is not None and "android_id" in previous:
+        data["android_id"] = previous["android_id"]
     plaintext = json.dumps(data, ensure_ascii=False).encode("utf-8")
     token = _get_cipher().encrypt(plaintext)
     target = _path(telegram_id)
@@ -116,6 +127,18 @@ def _fresh_card_id(existing_ids: set[str]) -> str:
         if candidate not in existing_ids:
             return candidate
     raise RuntimeError("카드 ID 생성 충돌 한도 초과")
+
+
+def android_id_for(telegram_id: int) -> str:
+    """사용자별 ID를 한 번 저장하고 재로그인 때 복원합니다."""
+    data = load(telegram_id) or {"ktx": None, "cards": []}
+    if "android_id" in data:
+        return validate_android_id(data["android_id"])
+    android_id = generate_android_id()
+    data["android_id"] = android_id
+    # 저장 실패 시 로그인하지 않아 다음 실행에서 신원이 바뀌는 것을 막습니다.
+    save(telegram_id, data)
+    return android_id
 
 
 def delete(telegram_id: int) -> None:

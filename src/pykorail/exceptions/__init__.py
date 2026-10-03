@@ -24,10 +24,11 @@ from pykorail.exceptions.api import (
     error_for_code,
 )
 from pykorail.exceptions.base import KorailError, PykorailError
-from pykorail.exceptions.network import NetFunnelError, TransportError
+from pykorail.exceptions.network import HttpStatusError, NetFunnelError, TransportError
 from pykorail.exceptions.validation import PastDepartureError, StationNotFoundError
 
 __all__ = [
+    "HttpStatusError",
     "KorailError",
     "LoginFailedError",
     "NeedToLoginError",

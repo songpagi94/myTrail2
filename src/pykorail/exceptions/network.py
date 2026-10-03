@@ -22,3 +22,13 @@ class NetFunnelError(PykorailError):
 
 class TransportError(PykorailError):
     """HTTP 세션을 만들 수 없거나 응답이 JSON 이 아닙니다."""
+
+
+class HttpStatusError(TransportError):
+    """표준 코레일 응답이 아닌 HTTP 거절을 로그인 정보 오류와 구분합니다."""
+
+    def __init__(self, status_code: int, code: str | None = None) -> None:
+        self.status_code = status_code
+        self.code = code
+        # 서버 본문에는 식별정보가 섞일 수 있으므로 예외에 담지 않습니다.
+        super().__init__(f"HTTP {status_code} (code={code})")

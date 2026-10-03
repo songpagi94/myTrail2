@@ -106,7 +106,7 @@ def test_numeric_server_code_is_logged_without_changing_response(caplog, code) -
     assert LOGIN_FAIL["h_msg_txt"] not in caplog.text
 
 
-@pytest.mark.parametrize("status", [200, 403, 500])
+@pytest.mark.parametrize("status", [200])
 def test_unknown_login_response_logs_status_and_structure_without_values(caplog, status) -> None:
     # given
     response = Mock(status_code=status, text='{"strMbCrdNo":"private-member", "strResult":null}')

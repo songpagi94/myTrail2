@@ -443,3 +443,15 @@ from pykorail import NetFunnelHelper
 
 key = NetFunnelHelper().run()  # 통과할 때까지 블로킹
 ```
+
+## 로그인 기기 ID와 HTTP 거절
+
+`Korail(android_id=saved_id)`와 `Korail.logged_in(..., android_id=saved_id)`는
+저장된 16자리 소문자 16진수 기기 ID를 재사용합니다. 생략하면 클라이언트 생성 시
+합성 ID를 한 번 만들며, `korail.android_id`로 읽어 저장할 수 있습니다.
+같은 클라이언트의 요청마다 ID를 다시 만들지 않습니다. 텔레그램 봇은 사용자별 ID를
+암호화 저장소에 보존하고 재로그인·재시작·계정 재등록 때 재사용합니다.
+
+`HttpStatusError`는 비표준 HTTP 4xx·5xx 응답을 나타냅니다. `status_code`와
+`code`로 HTTP 403 / -2000 등을 확인할 수 있으며 서버 본문은 예외에 포함하지 않습니다.
+표준 `strResult=FAIL` 응답의 기존 코레일 오류 코드 처리는 유지됩니다.

@@ -61,7 +61,7 @@ def test_login_and_calls_share_one_worker(backend) -> None:
 def test_search_preserves_public_resource_payload(korail, trail_env, monkeypatch) -> None:
     # given
     native, session = korail
-    monkeypatch.setattr(adapter, "Client", lambda: native)
+    monkeypatch.setattr(adapter, "Client", lambda **kwargs: native)
     rail = adapter.Korail(111)
 
     # when

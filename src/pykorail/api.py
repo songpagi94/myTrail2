@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from pykorail.constants import API_ENDPOINTS, API_KEY, APP_VERSION, DEVICE
-from pykorail.exceptions import TransportError, error_for_code
+from pykorail.exceptions import HttpStatusError, TransportError, error_for_code
 
 if TYPE_CHECKING:
     from pykorail.auth.signer import RequestSigner
@@ -106,7 +106,11 @@ class ApiClient:
             parsed = json.loads(response.text)
         except json.JSONDecodeError as exc:
             response_logger.warning("코레일 응답 endpoint=%s: JSON 해석 실패", _endpoint_name(url))
+            if type(status) is int and status >= 400:
+                raise HttpStatusError(status) from exc
             raise TransportError(f"코레일 응답을 JSON 으로 읽지 못했습니다: {response.text[:200]!r}") from exc
+        if type(status) is int and status >= 400 and not isinstance(parsed, dict):
+            raise HttpStatusError(status)
         if not isinstance(parsed, dict):
             response_logger.warning("코레일 응답 endpoint=%s: 객체가 아닌 JSON", _endpoint_name(url))
             raise TransportError(f"코레일 응답이 객체가 아닙니다: {type(parsed).__name__}")
@@ -128,6 +132,9 @@ class ApiClient:
                 type(result).__name__ if "strResult" in parsed else "MISSING",
                 _response_shape(parsed),
             )
+        if type(status) is int and status >= 400 and result not in ("SUCC", "FAIL"):
+            code = diagnostic_code(parsed.get("code"))
+            raise HttpStatusError(status, code if not code.startswith("[") else None)
         return parsed
 
 

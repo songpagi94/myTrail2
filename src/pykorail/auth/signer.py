@@ -7,8 +7,9 @@ import string
 from typing import TYPE_CHECKING
 
 from pykorail.auth.dynapath import DynaPathMasterEngine
-from pykorail.constants import DEVICE, DEVICE_ID, DYNAPATH_PATHS, SID_KEY
+from pykorail.constants import DEVICE, DYNAPATH_PATHS, SID_KEY
 from pykorail.crypto import encrypt_sid
+from pykorail.device.android_id import generate_android_id
 
 if TYPE_CHECKING:
     from pykorail.device import DeviceProfileLike
@@ -27,12 +28,12 @@ class RequestSigner:
         self,
         profile: DeviceProfileLike | None = None,
         device: str = DEVICE,
-        device_id: str = DEVICE_ID,
+        device_id: str | None = None,
         sid_key: bytes = SID_KEY,
     ) -> None:
         self._engine = DynaPathMasterEngine.from_profile(profile)
         self._device = device
-        self._device_id = device_id
+        self._device_id = generate_android_id() if device_id is None else device_id
         self._sid_key = sid_key
 
     def sign(self, url: str) -> tuple[dict[str, str], str | None]:

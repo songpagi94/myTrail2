@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, TypeVar
 
 from pykorail import Card, NoResultsError, ReserveOption, SoldOutError, TrainType
 from pykorail import Korail as Client
+from srtgo.bot.storage import android_id_for
 from srtgo.service import journal
 
 if TYPE_CHECKING:
@@ -35,7 +36,7 @@ class Korail:
 
         def invoke() -> T:
             if self._client is None:
-                self._client = Client()
+                self._client = Client(android_id=android_id_for(self.owner))
             return operation(self._client)
 
         return self._executor.submit(invoke).result()
@@ -160,7 +161,9 @@ class Korail:
     def close(self) -> None:
         if self._executor is not None:
             try:
-                self._call(lambda client: client.close())
+                # ID 저장 실패로 생성되지 않은 클라이언트를 종료 중에 만들지 않습니다.
+                if self._client is not None:
+                    self._call(lambda client: client.close())
             finally:
                 self._executor.shutdown(wait=True)
                 self._executor = None

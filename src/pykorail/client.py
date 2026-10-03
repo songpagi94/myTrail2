@@ -19,6 +19,7 @@ from pykorail.constants import (
 )
 from pykorail.crypto import encrypt_password
 from pykorail.device import dalvik_user_agent
+from pykorail.device.android_id import generate_android_id, validate_android_id
 from pykorail.exceptions import LoginFailedError
 from pykorail.resources import ReservationResource, StationResource, TicketResource, TrainResource
 from pykorail.transport import create_session
@@ -63,13 +64,18 @@ class Korail:
         verbose: bool = False,
         device_profile: DeviceProfileLike | None = None,
         validate_stations: bool = True,
+        *,
+        android_id: str | None = None,
     ) -> None:
+        self._android_id = generate_android_id() if android_id is None else validate_android_id(android_id)
         # 공유 dict 를 오염시키지 않도록 복사한 뒤 User-Agent 만 갈아 끼웁니다.
         headers = dict(DEFAULT_HEADERS)
         if device_profile is not None:
             headers["User-Agent"] = dalvik_user_agent(device_profile)
 
-        self._api = ApiClient(create_session(headers), RequestSigner(device_profile), verbose)
+        self._api = ApiClient(
+            create_session(headers), RequestSigner(device_profile, device_id=self._android_id), verbose
+        )
         self.device_profile = device_profile
 
         self.stations = StationResource(self._api)
@@ -86,6 +92,7 @@ class Korail:
         verbose: bool = False,
         device_profile: DeviceProfileLike | None = None,
         validate_stations: bool = True,
+        android_id: str | None = None,
     ) -> Korail:
         """클라이언트를 만들고 곧바로 로그인합니다.
 
@@ -95,7 +102,9 @@ class Korail:
         Raises:
             LoginFailedError: :meth:`login` 이 실패했습니다.
         """
-        korail = cls(verbose=verbose, device_profile=device_profile, validate_stations=validate_stations)
+        korail = cls(
+            verbose=verbose, device_profile=device_profile, validate_stations=validate_stations, android_id=android_id
+        )
         try:
             korail.login(korail_id, korail_pw)
         except BaseException:
@@ -104,6 +113,11 @@ class Korail:
         return korail
 
     # ------------------------------------------------------------- 세션 상태
+    @property
+    def android_id(self) -> str:
+        """저장 후 생성자에 전달해 복원할 수 있는 서명 기기 ID입니다."""
+        return self._android_id
+
     @property
     def verbose(self) -> bool:
         return self._api.verbose

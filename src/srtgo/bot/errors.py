@@ -6,7 +6,7 @@ import logging
 
 from pykorail import LoginFailedError, PastDepartureError, StationNotFoundError
 from pykorail.api import diagnostic_code
-from pykorail.exceptions import KorailError
+from pykorail.exceptions import HttpStatusError, KorailError
 from srtgo.service.journal import UncertainOperationError
 
 
@@ -16,11 +16,16 @@ def safe_error(error: Exception, *, operation: str = "bot") -> str:
         "봇 작업 실패 operation=%s error=%s h_msg_cd=%s reason=%s",
         operation,
         type(error).__name__,
-        diagnostic_code(error.code) if isinstance(error, KorailError) else "[없음]",
+        diagnostic_code(error.code) if isinstance(error, (KorailError, HttpStatusError)) else "[없음]",
         error.default_msg if isinstance(error, KorailError) else "[상세 생략]",
     )
     if isinstance(error, (UncertainOperationError, StationNotFoundError, PastDepartureError)):
         return str(error)[:500]
+    if isinstance(error, HttpStatusError):
+        code = diagnostic_code(error.code)
+        return (
+            f"코레일 서버가 요청을 거절했습니다 (HTTP {error.status_code}, code={code}). 서버 차단 응답을 확인하세요."
+        )
     if isinstance(error, LoginFailedError):
         return "로그인에 실패했습니다. /setup에서 코레일 계정을 확인하세요."
     return f"처리 오류 ({type(error).__name__}). 민감정보 보호를 위해 상세 응답은 표시하지 않습니다."
