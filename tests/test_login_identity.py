@@ -88,7 +88,10 @@ def test_adapter_restores_identity_in_new_client(trail_env, monkeypatch) -> None
     second.login("test@example.test", "test-only")
     second.close()
     # then
-    assert [call.kwargs for call in factory.call_args_list] == [{"android_id": original}] * 2
+    assert [call.kwargs["android_id"] for call in factory.call_args_list] == [original] * 2
+    assert [call.kwargs["request_settings"] for call in factory.call_args_list] == [
+        storage.request_settings_for(111)
+    ] * 2
 
 
 def test_explicit_client_identity_reaches_signer(make_korail) -> None:

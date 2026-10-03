@@ -10,6 +10,7 @@ from pykorail.auth.dynapath import DynaPathMasterEngine
 from pykorail.constants import DEVICE, DYNAPATH_PATHS, SID_KEY
 from pykorail.crypto import encrypt_sid
 from pykorail.device.android_id import generate_android_id
+from pykorail.device.request_settings import RequestSettings
 
 if TYPE_CHECKING:
     from pykorail.device import DeviceProfileLike
@@ -30,11 +31,19 @@ class RequestSigner:
         device: str = DEVICE,
         device_id: str | None = None,
         sid_key: bytes = SID_KEY,
+        *,
+        request_settings: RequestSettings | None = None,
     ) -> None:
-        self._engine = DynaPathMasterEngine.from_profile(profile)
+        settings = request_settings or RequestSettings()
+        self._engine = DynaPathMasterEngine(
+            device_model=settings.device_model or (profile.model if profile is not None else None),
+            os_version=settings.os_version or (profile.android if profile is not None else None),
+            os_type=settings.os_type,
+            sdk_version=settings.sdk_version,
+        )
         self._device = device
         self._device_id = generate_android_id() if device_id is None else device_id
-        self._sid_key = sid_key
+        self._sid_key = settings.sid_key if settings.sid_key is not None else sid_key
 
     def sign(self, url: str) -> tuple[dict[str, str], str | None]:
         """``url`` 에 필요한 ``(헤더, Sid)`` 를 만듭니다.

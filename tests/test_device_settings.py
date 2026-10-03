@@ -82,7 +82,8 @@ async def test_menu_has_two_choices(trail_env) -> None:
     # then
     assert result == settings.MENU
     buttons = event.message.reply_text.call_args.kwargs["reply_markup"].inline_keyboard
-    assert [button.text for row in buttons for button in row] == ["기본값 사용", "dev_id 임의 입력"]
+    assert [button.text for row in buttons for button in row] == ["1. 편집하기", "2. 취소"]
+    assert all(label in event.message.reply_text.call_args.args[0] for label in settings.LABELS.values())
     assert ctx.user_data["device_settings_message"] == 10
 
 
@@ -90,7 +91,7 @@ async def test_custom_choice_prompts_for_input(trail_env) -> None:
     # given
     ctx = context()
     ctx.user_data["device_settings_message"] = 10
-    event = update(data="dev:custom")
+    event = update(data="dev:manual:device_id")
     # when
     result = await settings.choose(event, ctx)
     # then
@@ -105,29 +106,30 @@ async def test_default_choice_closes_old_search_and_resets(trail_env) -> None:
     ctx = search_context()
     rail = ctx.user_data["search"]["rail"]
     ctx.user_data.update(device_settings_message=10, pending_indices=[0])
-    event = update(data="dev:default")
+    event = update(data="dev:reset:device_id")
     # when
     result = await settings.choose(event, ctx)
     # then
-    assert result == ConversationHandler.END
+    assert result == settings.FIELD
     assert storage.android_id_for(111) == original
     assert "search" not in ctx.user_data
     assert "pending_indices" not in ctx.user_data
     rail.close.assert_called_once()
 
 
-async def test_input_is_saved_without_echo_and_old_session_is_closed(trail_env) -> None:
+async def test_input_is_saved_and_displayed_and_old_session_is_closed(trail_env) -> None:
     # given
     ctx = search_context()
+    ctx.user_data["device_settings_field"] = "device_id"
     rail = ctx.user_data["search"]["rail"]
     event = update("  " + CUSTOM + "  ")
     # when
     result = await settings.receive(event, ctx)
     # then
-    assert result == ConversationHandler.END
+    assert result == settings.FIELD
     assert storage.android_id_for(111) == CUSTOM
     event.message.delete.assert_awaited_once()
-    assert CUSTOM not in event.message.reply_text.call_args.args[0]
+    assert CUSTOM in event.message.reply_text.call_args.args[0]
     rail.close.assert_called_once()
 
 
@@ -135,8 +137,10 @@ async def test_invalid_input_keeps_waiting_and_identity(trail_env) -> None:
     # given
     original = storage.android_id_for(111)
     event = update("wrong")
+    ctx = context()
+    ctx.user_data["device_settings_field"] = "device_id"
     # when
-    result = await settings.receive(event, context())
+    result = await settings.receive(event, ctx)
     # then
     assert result == settings.INPUT
     assert storage.android_id_for(111) == original
@@ -160,7 +164,7 @@ async def test_stale_menu_cannot_reset_override(trail_env) -> None:
     storage.set_android_id(111, CUSTOM)
     ctx = context()
     ctx.user_data["device_settings_message"] = 11
-    event = update(data="dev:default", message_id=10)
+    event = update(data="dev:reset:device_id", message_id=10)
     # when
     result = await settings.choose(event, ctx)
     # then

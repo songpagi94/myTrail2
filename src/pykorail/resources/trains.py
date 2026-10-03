@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from pykorail.constants import API_ENDPOINTS, APP_VERSION, DEVICE, KST_OFFSET_HOURS
+from pykorail.constants import API_ENDPOINTS, DEVICE, KST_OFFSET_HOURS
 from pykorail.exceptions import NoResultsError, PastDepartureError
 from pykorail.models.passenger import (
     AdultPassenger,
@@ -106,7 +106,7 @@ class TrainResource(Resource):
         # 조회는 다른 엔드포인트와 달리 Key 를 싣지 않고 빈 Sid 를 보냅니다 (앱 동작 그대로).
         data = {
             "Device": DEVICE,
-            "Version": APP_VERSION,
+            "Version": self._api.base_payload()["Version"],
             "Sid": "",
             "txtMenuId": "11",
             "radJobId": "1",

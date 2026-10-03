@@ -41,7 +41,14 @@ class DynaPathMasterEngine:
     OS_TYPE: ClassVar[str] = "Android"
     SDK_VERSION: ClassVar[str] = "v1.0.3"
 
-    def __init__(self, device_model: str | None = None, os_version: str | None = None) -> None:
+    def __init__(
+        self,
+        device_model: str | None = None,
+        os_version: str | None = None,
+        *,
+        os_type: str | None = None,
+        sdk_version: str | None = None,
+    ) -> None:
         self.app_start_ts = str(int(time.time() * 1000))
         self._last_ts = int(self.app_start_ts)
         self._recent_intervals: deque[int] = deque(maxlen=5)
@@ -49,6 +56,8 @@ class DynaPathMasterEngine:
         # 기본값을 클래스 상수와 같게 둬 미주입 시 서명이 바이트 단위로 동일합니다.
         self.device_model = device_model or self.DEVICE_MODEL
         self.os_version = os_version or self.OS_VERSION
+        self.os_type = os_type or self.OS_TYPE
+        self.sdk_version = sdk_version or self.SDK_VERSION
 
     @classmethod
     def from_profile(cls, profile: DeviceProfileLike | None) -> DynaPathMasterEngine:
@@ -204,12 +213,12 @@ class DynaPathMasterEngine:
             *(("rt", str(delta)) for delta in self._recent_intervals),
             ("os", self.os_version),
             ("dm", self.device_model),
-            ("st", self.OS_TYPE),
-            ("sv", self.SDK_VERSION),
+            ("st", self.os_type),
+            ("sv", self.sdk_version),
         ]
         # Java URLEncoder는 공백을 '+', '~'를 '%7E'로 바꾸고 '*'는 보존합니다.
         payload = "&".join(f"{_url_encode(key)}={_url_encode(value)}" for key, value in fields)
-        dyn_key = f"{self.SDK_VERSION}+{rand}+{ts}"
+        dyn_key = f"{self.sdk_version}+{rand}+{ts}"
         key_part = self._encode(dyn_key, _TABLE)
         custom_table = self._build_table(self._derive_key(dyn_key), _MODULUS, _TABLE)
         body_part = self._encode(payload, custom_table)

@@ -446,6 +446,13 @@ key = NetFunnelHelper().run()  # 통과할 때까지 블로킹
 
 ## 로그인 기기 ID와 HTTP 거절
 
+`pykorail.device.request_settings.RequestSettings`를 `Korail(request_settings=...)`
+또는 `Korail.logged_in(..., request_settings=...)`에 전달하면 기기 모델, OS 버전·종류,
+SDK 버전, 앱 Version, Sid key를 해당 인스턴스에만 적용합니다. 미지정 항목은 기존
+상수·프로파일을 사용합니다. 모델·OS는 User-Agent와 서명에 함께 반영되며 SDK 버전은
+토큰 본문·인코딩 키에, 앱 Version은 로그인·조회·예약 등의 요청에 적용됩니다.
+Sid key는 키를 IV로 재사용하는 기존 암호화 방식에 따라 16바이트여야 합니다.
+
 `Korail(android_id=saved_id)`와 `Korail.logged_in(..., android_id=saved_id)`는
 저장된 16자리 소문자 16진수 기기 ID를 재사용합니다. 생략하면 클라이언트 생성 시
 합성 ID를 한 번 만들며, `korail.android_id`로 읽어 저장할 수 있습니다.

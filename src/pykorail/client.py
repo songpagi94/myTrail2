@@ -6,12 +6,15 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from pykorail.api import ApiClient
+from pykorail.auth.dynapath import DynaPathMasterEngine
 from pykorail.auth.signer import RequestSigner
 from pykorail.constants import (
     API_ENDPOINTS,
+    APP_VERSION,
     DEFAULT_HEADERS,
     EMAIL_REGEX,
     HYPHENLESS_PHONE_REGEX,
@@ -20,6 +23,7 @@ from pykorail.constants import (
 from pykorail.crypto import encrypt_password
 from pykorail.device import dalvik_user_agent
 from pykorail.device.android_id import generate_android_id, validate_android_id
+from pykorail.device.request_settings import RequestSettings
 from pykorail.exceptions import LoginFailedError
 from pykorail.resources import ReservationResource, StationResource, TicketResource, TrainResource
 from pykorail.transport import create_session
@@ -66,15 +70,38 @@ class Korail:
         validate_stations: bool = True,
         *,
         android_id: str | None = None,
+        request_settings: RequestSettings | None = None,
     ) -> None:
+        settings = request_settings or RequestSettings()
         self._android_id = generate_android_id() if android_id is None else validate_android_id(android_id)
         # 공유 dict 를 오염시키지 않도록 복사한 뒤 User-Agent 만 갈아 끼웁니다.
         headers = dict(DEFAULT_HEADERS)
         if device_profile is not None:
             headers["User-Agent"] = dalvik_user_agent(device_profile)
 
+        # 사용자 지정 신원도 UA와 서명에 함께 적용합니다. 기존 빌드 ID는 보존합니다.
+        if settings.device_model is not None:
+            headers["User-Agent"] = re.sub(
+                r"; [^;]+ Build/",
+                lambda match: f"; {settings.device_model} Build/",
+                headers["User-Agent"],
+            )
+        if settings.os_version is not None or settings.os_type is not None:
+            os_version = settings.os_version or (
+                device_profile.android if device_profile is not None else DynaPathMasterEngine.OS_VERSION
+            )
+            os_type = settings.os_type or DynaPathMasterEngine.OS_TYPE
+            headers["User-Agent"] = re.sub(
+                r"; U; [^;]+;",
+                lambda match: f"; U; {os_type} {os_version};",
+                headers["User-Agent"],
+            )
+
         self._api = ApiClient(
-            create_session(headers), RequestSigner(device_profile, device_id=self._android_id), verbose
+            create_session(headers),
+            RequestSigner(device_profile, device_id=self._android_id, request_settings=settings),
+            verbose,
+            app_version=settings.app_version or APP_VERSION,
         )
         self.device_profile = device_profile
 
@@ -93,6 +120,7 @@ class Korail:
         device_profile: DeviceProfileLike | None = None,
         validate_stations: bool = True,
         android_id: str | None = None,
+        request_settings: RequestSettings | None = None,
     ) -> Korail:
         """클라이언트를 만들고 곧바로 로그인합니다.
 
@@ -103,7 +131,11 @@ class Korail:
             LoginFailedError: :meth:`login` 이 실패했습니다.
         """
         korail = cls(
-            verbose=verbose, device_profile=device_profile, validate_stations=validate_stations, android_id=android_id
+            verbose=verbose,
+            device_profile=device_profile,
+            validate_stations=validate_stations,
+            android_id=android_id,
+            request_settings=request_settings,
         )
         try:
             korail.login(korail_id, korail_pw)

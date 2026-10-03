@@ -11,7 +11,10 @@ from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from pykorail.auth.dynapath import DynaPathMasterEngine
+from pykorail.constants import APP_VERSION, SID_KEY
 from pykorail.device.android_id import generate_android_id, validate_android_id
+from pykorail.device.request_settings import RequestSettings
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +63,12 @@ def save(telegram_id: int, data: dict) -> None:
     data = dict(data)
     previous = (
         json.loads(_get_cipher().decrypt(_path(telegram_id).read_bytes()).decode("utf-8"))
-        if ("android_id" not in data or "default_android_id" not in data) and exists(telegram_id)
+        if any(field not in data for field in ("android_id", "default_android_id", "request_settings"))
+        and exists(telegram_id)
         else None
     )
     if previous is not None:
-        for field in ("android_id", "default_android_id"):
+        for field in ("android_id", "default_android_id", "request_settings"):
             if field not in data and field in previous:
                 data[field] = previous[field]
     plaintext = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -153,6 +157,69 @@ def set_android_id(telegram_id: int, value: str | None) -> None:
     if data is None:
         raise RuntimeError("기기 ID 저장 정보를 찾을 수 없습니다.")
     data["android_id"] = selected if selected is not None else data["default_android_id"]
+    save(telegram_id, data)
+
+
+def request_values_for(telegram_id: int) -> dict[str, str]:
+    """현재 사용자 설정을 기존 상수 기본값과 합쳐 반환합니다."""
+    identity = android_id_for(telegram_id)
+    values = {
+        "device_model": DynaPathMasterEngine.DEVICE_MODEL,
+        "os_version": DynaPathMasterEngine.OS_VERSION,
+        "os_type": DynaPathMasterEngine.OS_TYPE,
+        "sdk_version": DynaPathMasterEngine.SDK_VERSION,
+        "app_version": APP_VERSION,
+        "sid_key": SID_KEY.decode("ascii"),
+    }
+    data = load(telegram_id) or {}
+    overrides = data.get("request_settings", {})
+    if not isinstance(overrides, dict) or any(
+        key not in values or not isinstance(value, str) for key, value in overrides.items()
+    ):
+        raise ValueError("저장된 요청 설정 형식이 잘못됐습니다")
+    values.update(overrides)
+    _settings_from_values(values)
+    return {**values, "device_id": identity}
+
+
+def _settings_from_values(values: dict[str, str]) -> RequestSettings:
+    return RequestSettings(
+        device_model=values["device_model"],
+        os_version=values["os_version"],
+        os_type=values["os_type"],
+        sdk_version=values["sdk_version"],
+        app_version=values["app_version"],
+        sid_key=values["sid_key"].encode("ascii"),
+    )
+
+
+def request_settings_for(telegram_id: int) -> RequestSettings:
+    """현재 사용자 설정을 클라이언트에 주입할 불변 설정으로 만듭니다."""
+    return _settings_from_values(request_values_for(telegram_id))
+
+
+def set_request_value(telegram_id: int, field: str, value: str | None, *, regenerate: bool = False) -> None:
+    """항목 하나를 변경하거나 기본값으로 복원합니다."""
+    values = request_values_for(telegram_id)
+    if field not in values:
+        raise ValueError("지원하지 않는 설정 항목입니다")
+    if regenerate and field != "device_id":
+        raise ValueError("자동 재생성은 Device ID에서만 지원합니다")
+    if field == "device_id":
+        set_android_id(telegram_id, generate_android_id() if regenerate else value)
+        return
+    if value is not None:
+        values[field] = value
+        _settings_from_values(values)
+    data = load(telegram_id)
+    if data is None:
+        raise RuntimeError("사용자 설정 정보를 찾을 수 없습니다")
+    overrides = dict(data.get("request_settings", {}))
+    if value is None:
+        overrides.pop(field, None)
+    else:
+        overrides[field] = value
+    data["request_settings"] = overrides
     save(telegram_id, data)
 
 

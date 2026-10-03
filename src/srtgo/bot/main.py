@@ -105,8 +105,13 @@ def _build_device_conversation() -> ConversationHandler:
             MessageHandler(filters.Regex(r"^/dev-set\s*$"), device_settings.entry),
         ],
         states={
-            device_settings.MENU: [CallbackQueryHandler(device_settings.choose, pattern=r"^dev:(default|custom)$")],
-            device_settings.INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, device_settings.receive)],
+            device_settings.MENU: [CallbackQueryHandler(device_settings.choose, pattern=r"^dev:")],
+            device_settings.FIELDS: [CallbackQueryHandler(device_settings.choose, pattern=r"^dev:")],
+            device_settings.FIELD: [CallbackQueryHandler(device_settings.choose, pattern=r"^dev:")],
+            device_settings.INPUT: [
+                CallbackQueryHandler(device_settings.choose, pattern=r"^dev:"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, device_settings.receive),
+            ],
         },
         fallbacks=[CommandHandler("cancel", device_settings.cancel)],
         allow_reentry=True,

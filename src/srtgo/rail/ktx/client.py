@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, TypeVar
 
 from pykorail import Card, NoResultsError, ReserveOption, SoldOutError, TrainType
 from pykorail import Korail as Client
-from srtgo.bot.storage import android_id_for
+from srtgo.bot.storage import android_id_for, request_settings_for
 from srtgo.service import journal
 
 if TYPE_CHECKING:
@@ -36,7 +36,10 @@ class Korail:
 
         def invoke() -> T:
             if self._client is None:
-                self._client = Client(android_id=android_id_for(self.owner))
+                self._client = Client(
+                    android_id=android_id_for(self.owner),
+                    request_settings=request_settings_for(self.owner),
+                )
             return operation(self._client)
 
         return self._executor.submit(invoke).result()

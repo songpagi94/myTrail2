@@ -49,10 +49,18 @@ class Account:
 class ApiClient:
     """서명·전송·응답 해석을 담당합니다."""
 
-    def __init__(self, session: HttpSession, signer: RequestSigner, verbose: bool = False) -> None:
+    def __init__(
+        self,
+        session: HttpSession,
+        signer: RequestSigner,
+        verbose: bool = False,
+        *,
+        app_version: str = APP_VERSION,
+    ) -> None:
         self._session = session
         self._signer = signer
         self.verbose = verbose
+        self._app_version = app_version
         self.account = Account()
 
     # ------------------------------------------------------------------- 전송
@@ -85,7 +93,7 @@ class ApiClient:
     # ------------------------------------------------------------------- 해석
     def base_payload(self) -> dict[str, Any]:
         """거의 모든 요청에 실리는 앱 신원 필드."""
-        return {"Device": DEVICE, "Version": APP_VERSION, "Key": API_KEY}
+        return {"Device": DEVICE, "Version": self._app_version, "Key": API_KEY}
 
     @staticmethod
     def check(payload: dict[str, Any]) -> None:
