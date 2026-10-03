@@ -32,6 +32,7 @@ HELP_TEXT = (
     "사용법:\n"
     "/setup — 자격증명 등록 (코레일 ID/PW, 카드)\n"
     "/cards — 카드 목록·추가·삭제\n"
+    "/dev_set (/dev-set) — 사용자별 기기 ID 설정\n"
     "/status — 예약·결제 확인 대기 상태\n"
     "/cancel — 진행 중 예약 시도·예약 취소\n"
     "/help — 도움말\n\n"

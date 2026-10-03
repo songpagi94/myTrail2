@@ -20,7 +20,7 @@ def test_application_uses_mytrail_conversations_before_global_cancel() -> None:
     registered = app.handlers[0]
     conversations = [i for i, h in enumerate(registered) if isinstance(h, ConversationHandler)]
     cancel = next(i for i, h in enumerate(registered) if isinstance(h, CommandHandler) and "cancel" in h.commands)
-    assert len(conversations) == 3
+    assert len(conversations) == 4
     assert max(conversations) < cancel
     assert app.concurrent_updates == 1
     setup = registered[conversations[0]]

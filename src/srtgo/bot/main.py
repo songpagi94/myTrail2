@@ -19,7 +19,7 @@ from telegram.ext import (
 )
 
 from ..service import journal
-from . import auth_guard, handlers, storage
+from . import auth_guard, device_settings, handlers, storage
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +97,22 @@ def _build_cards_edit_conversation() -> ConversationHandler:
     )
 
 
+def _build_device_conversation() -> ConversationHandler:
+    """정식 명령과 하이픈을 포함한 직접 입력 별칭을 함께 지원합니다."""
+    return ConversationHandler(
+        entry_points=[
+            CommandHandler("dev_set", device_settings.entry),
+            MessageHandler(filters.Regex(r"^/dev-set\s*$"), device_settings.entry),
+        ],
+        states={
+            device_settings.MENU: [CallbackQueryHandler(device_settings.choose, pattern=r"^dev:(default|custom)$")],
+            device_settings.INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, device_settings.receive)],
+        },
+        fallbacks=[CommandHandler("cancel", device_settings.cancel)],
+        allow_reentry=True,
+    )
+
+
 async def shutdown(app: Application) -> None:
     await handlers._SESSION.shutdown()
     for data in app.user_data.values():
@@ -118,6 +134,7 @@ def build_application(token: str) -> Application:
     app.add_handler(_build_setup_conversation())
     app.add_handler(_build_cards_add_conversation())
     app.add_handler(_build_cards_edit_conversation())
+    app.add_handler(_build_device_conversation())
     app.add_handler(CommandHandler("cancel", handlers.cmd_cancel))
     app.add_handler(CommandHandler("status", handlers.cmd_status))
     app.add_handler(CallbackQueryHandler(handlers.on_resolve, pattern=r"^resolve:"))

@@ -60,11 +60,13 @@ def save(telegram_id: int, data: dict) -> None:
     data = dict(data)
     previous = (
         json.loads(_get_cipher().decrypt(_path(telegram_id).read_bytes()).decode("utf-8"))
-        if "android_id" not in data and exists(telegram_id)
+        if ("android_id" not in data or "default_android_id" not in data) and exists(telegram_id)
         else None
     )
-    if previous is not None and "android_id" in previous:
-        data["android_id"] = previous["android_id"]
+    if previous is not None:
+        for field in ("android_id", "default_android_id"):
+            if field not in data and field in previous:
+                data[field] = previous[field]
     plaintext = json.dumps(data, ensure_ascii=False).encode("utf-8")
     token = _get_cipher().encrypt(plaintext)
     target = _path(telegram_id)
@@ -132,13 +134,26 @@ def _fresh_card_id(existing_ids: set[str]) -> str:
 def android_id_for(telegram_id: int) -> str:
     """사용자별 ID를 한 번 저장하고 재로그인 때 복원합니다."""
     data = load(telegram_id) or {"ktx": None, "cards": []}
-    if "android_id" in data:
-        return validate_android_id(data["android_id"])
-    android_id = generate_android_id()
-    data["android_id"] = android_id
+    android_id = validate_android_id(data["android_id"]) if "android_id" in data else generate_android_id()
+    if "default_android_id" in data:
+        validate_android_id(data["default_android_id"])
+        return android_id
+    # 기존 사용자의 최초 생성 ID도 기본값으로 보존합니다.
+    data.update(android_id=android_id, default_android_id=android_id)
     # 저장 실패 시 로그인하지 않아 다음 실행에서 신원이 바뀌는 것을 막습니다.
     save(telegram_id, data)
     return android_id
+
+
+def set_android_id(telegram_id: int, value: str | None) -> None:
+    """직접 입력한 ID를 저장하거나 최초 생성 ID로 복원합니다."""
+    selected = validate_android_id(value) if value is not None else None
+    android_id_for(telegram_id)
+    data = load(telegram_id)
+    if data is None:
+        raise RuntimeError("기기 ID 저장 정보를 찾을 수 없습니다.")
+    data["android_id"] = selected if selected is not None else data["default_android_id"]
+    save(telegram_id, data)
 
 
 def delete(telegram_id: int) -> None:
